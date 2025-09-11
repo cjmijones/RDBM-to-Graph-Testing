@@ -19,33 +19,6 @@ load_dotenv(dotenv_path=parent_env) if parent_env.exists() else load_dotenv()
 
 
 # ---------- Helpers ----------
-def _normalize_pg_url(raw_url: str) -> str:
-    """
-    Normalize a Postgres URL to an explicit driver and ensure sslmode=require (needed for Supabase).
-    Defaults to psycopg2 driver if none specified.
-    """  # noqa: D205, D212
-    if not raw_url:
-        raise RuntimeError("DATABASE_URL is not set. Add it to your .env or environment.")
-
-    # Option A: psycopg2
-    driver = "postgresql+psycopg2"
-    # (Option B psycopg3 would be: driver = "postgresql+psycopg")
-
-    url = make_url(raw_url)
-
-    # If driver isn’t specified, set it
-    if "+" not in url.drivername:
-        base = "postgresql"  # normalize 'postgres' -> 'postgresql'
-        url = url.set(drivername=f"{base}+{driver.split('+', 1)[1]}")
-
-    # Supabase needs SSL; add if missing
-    query = dict(url.query)
-    query.setdefault("sslmode", "require")
-    url = url.set(query=query)
-
-    return str(url)
-
-
 def _parquet_friendly(df: pd.DataFrame) -> pd.DataFrame:
     """Coerce columns to types that pyarrow/pandas can write to parquet safely."""
     out = df.copy()
@@ -298,9 +271,18 @@ def build_mock_dataset(
         Absolute path to the output directory.
     """
     # Prepare engine
+    driver = "postgresql+psycopg2"
     raw_url = database_url or os.environ.get("DATABASE_URL")
-    pg_url = _normalize_pg_url(raw_url)
-    engine = create_engine(pg_url)
+    url = make_url(raw_url)
+
+    if "+" not in url.drivername:
+        base = "postgresql"
+        url = url.set(drivername=f"{base}+{driver.split('+',1)[1]}")
+
+    query = dict(url.query)
+    query.setdefault("sslmode", "require")
+    url = url.set(query=query)
+    engine = create_engine(url)
 
     # Sample IDs
     people_sample = _sample_people(engine, limit=limit, seed=seed)
