@@ -241,7 +241,7 @@ for name, df in [
 
 
 # Directory for parquet + sqlite outputs
-outdir = Path("mock_dataset")
+outdir = Path("../mock_dataset")
 outdir.mkdir(exist_ok=True)
 
 # Collect all the frames into a dict
