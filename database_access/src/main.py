@@ -86,13 +86,30 @@ def sql_tuple(ids):
         return "(NULL)"  # will match nothing
     return "(" + ",".join(vals) + ")"
 
-# 1) sample 50 people (already in your code)
-people_sample = pd.read_sql("""
-    SELECT id
-    FROM public.people
-    ORDER BY random()
-    LIMIT 50;
-""", engine)
+def sample_people(engine, limit=50, seed=None):
+    """Sample people from the database with optional deterministic random seed. If seed is provided, the same set will be returned for the same seed."""
+    if seed is not None:
+        # Use setseed in SQL to make ORDER BY random() deterministic
+        query = f"""
+            SELECT id
+            FROM public.people
+            ORDER BY (
+                SELECT setseed({float(seed) % 1})
+            ), random()
+            LIMIT {limit};
+        """
+    else:
+        query = f"""
+            SELECT id
+            FROM public.people
+            ORDER BY random()
+            LIMIT {limit};
+        """
+    return pd.read_sql(query, engine)
+
+# 1) sample 50 people (optionally deterministic)
+# To get a reproducible sample, pass a float seed between 0 and 1, e.g. seed=0.42
+people_sample = sample_people(engine, limit=50, seed=None)
 
 person_ids = [str(x) for x in people_sample["id"].tolist()]
 person_ids_sql = sql_tuple(person_ids)
