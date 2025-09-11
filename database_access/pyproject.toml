@@ -1,0 +1,96 @@
+[project]
+name = "db-testing-env"
+version = "0.0.1"
+description = "Reasoning and Action agent (using tool calling) in LangGraph."
+authors = [
+    { name = "Ascend", email = "dev@ascendos.io" },
+]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=0.4.8",
+    "langgraph-cli[inmem]>=0.3.3",
+    "langchain>=0.3.26",
+    "langchain-openai>=0.3.27",
+    "langchain-anthropic>=0.3.16",
+    "langchain-fireworks>=0.3.0",
+    "langchain-community>=0.3.26",
+    "langchain-google-genai>=2.1.6",
+    "python-dotenv>=1.1.0",
+    "tavily-python>=0.7.7",
+    "psycopg2-binary>=2.9.10",
+    "asyncpg>=0.29.0",
+    "rapidfuzz>=3.13.0",
+    "pytz>=2025.1",
+    "scipy>=1.15.2",
+    "mistralai>=1.8.2",
+    "neo4j>=5.28.1",
+    "pytesseract>=0.3.13",
+    "types-python-dateutil>=2.9.0.20250516",
+    "pymupdf>=1.26.1",
+    "pandas>=2.3.0",
+    "ics>=0.7.2",
+    "requests>=2.32.4",
+    "types-requests>=2.32.0.20250328",
+    "hdbscan>=0.8.40",
+    "langchain-cerebras>=0.5.0",
+    "langchain-groq>=0.3.4",
+    "aiohttp>=3.12.13",
+    "sendgrid>=6.12.4",
+    "temporalio>=1.15.0",
+    "sqlalchemy[asyncio]>=2.0.42",
+]
+
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.0.0",
+    "pytest-cov>=6.0.0",
+    "mypy>=1.16.1",
+    "ruff>=0.12.1",
+    "black>=25.1.0",
+    "pre-commit>=4.2.0",
+    "pydantic>=2.11.7",
+    "types-pytz>=2025.2.0.20250516",
+]
+
+[build-system]
+requires = ["setuptools>=80.9.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+
+[tool.ruff]
+lint.select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # isort
+    "D",    # pydocstyle
+    "D401", # First line should be in imperative mood
+    "T201",
+    "UP",
+]
+lint.ignore = [
+    "UP006",
+    "UP007",
+    # We actually do want to import from typing_extensions
+    "UP035",
+    # Relax the convention by _not_ requiring documentation for every function parameter.
+    "D417",
+    "E501",
+    "T201",
+    # Module level import not at top of file
+    "E402",
+]
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D", "UP"]
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=src --cov-report=term-missing"
