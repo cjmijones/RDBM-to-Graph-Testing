@@ -76,6 +76,15 @@ def fetch_slice_for_person(conn, person_id: str) -> Dict[str, Any]:
 
     return pack
 
+def coerce_min_contract(patch: dict) -> dict:
+    if not isinstance(patch.get("nodes"), list):
+        patch["nodes"] = []
+    if not isinstance(patch.get("edges"), list):
+        patch["edges"] = []
+    if not isinstance(patch.get("provenance"), list):
+        patch["provenance"] = []   # <-- critical
+    return patch
+
 # ----------------------------
 # LLM call
 # ----------------------------
@@ -244,6 +253,7 @@ def build_kg(
 
         try:
             patch = try_parse(raw)
+            patch = coerce_min_contract(patch)
         except json.JSONDecodeError:
             fix_msgs = messages + [
                 {"role": "assistant", "content": raw},
@@ -252,6 +262,7 @@ def build_kg(
             try:
                 fixed = call_mistral(fix_msgs, api_key=api_key, model=model, mistral_url=mistral_url, max_tokens=max_tokens)
                 patch = try_parse(fixed)
+                patch = coerce_min_contract(patch)
             except Exception as e:
                 print(f"[warn] JSON repair failed for {pid}: {e}")
                 continue
