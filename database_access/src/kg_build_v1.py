@@ -303,7 +303,7 @@ def build_kg(
 # ----------------------------
 # Defaults for easy CLI usage
 # ----------------------------
-DEFAULT_KG_SCHEMA: Dict[str, Any] = {
+DEFAULT_KG_SCHEMA = {
     "type": "object",
     "required": ["nodes", "edges", "provenance"],
     "properties": {
@@ -311,6 +311,7 @@ DEFAULT_KG_SCHEMA: Dict[str, Any] = {
             "type": "array",
             "items": {
                 "type": "object",
+                # keep minimal contract
                 "required": ["id", "type"],
                 "properties": {
                     "id": {"type": "string"},
@@ -318,7 +319,8 @@ DEFAULT_KG_SCHEMA: Dict[str, Any] = {
                     "labels": {"type": "object"},
                     "external_ids": {"type": "object"}
                 },
-                "additionalProperties": False
+                # ALLOW extra keys like name, avatar_url, linkedin_id, etc.
+                "additionalProperties": True
             }
         },
         "edges": {
@@ -330,25 +332,29 @@ DEFAULT_KG_SCHEMA: Dict[str, Any] = {
                     "sub": {"type": "string"},
                     "pred": {"type": "string"},
                     "obj": {"type": "string"},
-                    "qualifiers": {"type": "object"},
+                    "qualifiers": {"type": "object"}
                 },
-                "additionalProperties": False
+                # ALLOW extra keys if the model includes them
+                "additionalProperties": True
             }
         },
         "provenance": {
             "type": "array",
             "items": {
                 "type": "object",
-                "required": ["triple", "evidence"],
+                # Make both optional to avoid rejecting useful patches.
+                # We'll accept partial provenance and fix it later.
                 "properties": {
-                    "triple": {"type": "object",
-                               "required": ["sub", "pred", "obj"],
-                               "properties": {
-                                   "sub": {"type": "string"},
-                                   "pred": {"type": "string"},
-                                   "obj": {"type": "string"},
-                               },
-                               "additionalProperties": False},
+                    "triple": {
+                        "type": "object",
+                        "properties": {
+                            "sub": {"type": "string"},
+                            "pred": {"type": "string"},
+                            "obj": {"type": "string"}
+                        },
+                        # allow additional keys like source_predicate, time, etc.
+                        "additionalProperties": True
+                    },
                     "evidence": {
                         "type": "object",
                         "properties": {
@@ -359,25 +365,29 @@ DEFAULT_KG_SCHEMA: Dict[str, Any] = {
                             "quote": {"type": ["string", "null"]},
                             "confidence": {"type": ["number", "null"]},
                             "collected_at": {"type": ["string", "null"]}
-                        }
+                        },
+                        "additionalProperties": True
                     }
                 },
-                "additionalProperties": False
+                "additionalProperties": True
             }
         }
     },
-    "additionalProperties": False
+    # allow top-level extras if needed in the future
+    "additionalProperties": True
 }
+
 
 DEFAULT_SYSTEM_PROMPT = """You convert relational rows into a small YAGO/Schema.org compliant knowledge subgraph.
 
 Rules:
-- Use classes like: schema:Person, schema:Organization (and EducationalOrganization if obvious), schema:Event, schema:Language, yago:Award, yago:Gender, yago:BeliefSystem, schema:Place.
+- Use classes with examples like: schema:Person, schema:Organization (and EducationalOrganization if obvious), schema:Event, schema:Language, yago:Award, yago:Gender, yago:BeliefSystem, schema:Place.
 - Prefer property directions: use schema:parentOrganization (not childOrganization); use schema:superEvent (not subEvent).
 - For Person edges, prefer: schema:alumniOf, schema:worksFor, schema:memberOf, schema:affiliation, schema:knowsLanguage, schema:award, schema:gender, schema:homeLocation, schema:participant (for events).
+- You may add additional schema types as long as they align with YAGO best practices
 - Emit only valid JSON with keys: nodes, edges, provenance (no extra keys).
 - Node ids must be strings; reuse ids inside your output when linking.
-- For organizations detected as universities/colleges, type them as EducationalOrganization.
+- Example: For organizations detected as universities/colleges, type them as EducationalOrganization.
 - Add lightweight provenance for edges where possible (table name, source pk, data_point_id, url/quote if present).
 - Do not invent unknown facts; if unsure, omit.
 """
