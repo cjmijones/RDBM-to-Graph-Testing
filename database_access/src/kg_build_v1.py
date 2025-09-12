@@ -79,13 +79,7 @@ def fetch_slice_for_person(conn, person_id: str) -> Dict[str, Any]:
 # ----------------------------
 # LLM call
 # ----------------------------
-def call_mistral(
-    messages: List[Dict[str, str]],
-    api_key: str,
-    model: str,
-    mistral_url: str,
-    max_tokens: int
-) -> str:
+def call_mistral(messages, api_key, model, mistral_url, max_tokens):
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -93,12 +87,21 @@ def call_mistral(
     payload = {
         "model": model,
         "messages": messages,
-        "temperature": 0.1,
+        "temperature": 0.0,            # more reliable JSON
         "max_tokens": max_tokens,
-        "response_format": {"type": "json_object"}  # ask JSON back
+        "response_format": {"type": "json_object"}  # may be rejected; see fallback below
     }
-    resp = requests.post(mistral_url, headers=headers, json=payload, timeout=60)
-    resp.raise_for_status()
+    resp = requests.post(mistral_url, headers=headers, json=payload, timeout=120)
+    if not resp.ok:
+        # surface the server’s explanation
+        try:
+            err = resp.json()
+        except Exception:
+            err = {"raw": resp.text}
+        raise requests.HTTPError(
+            f"{resp.status_code} {resp.reason} | detail: {err}",
+            response=resp
+        )
     data = resp.json()
     return data["choices"][0]["message"]["content"]
 
