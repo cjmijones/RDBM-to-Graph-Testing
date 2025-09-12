@@ -177,3 +177,5 @@ langgraphjs-docs/
 # mock dataset
 mock_dataset/
 **/mock_dataset/
+
+test_notebook.ipynb

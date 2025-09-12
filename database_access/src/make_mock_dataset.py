@@ -249,6 +249,7 @@ def build_mock_dataset(
     database_url: Optional[str] = None,
     verbose: bool = True,
 ) -> Path:
+
     """
     Build a mock dataset by sampling people and exporting related tables to Parquet and a SQLite DB.
 
