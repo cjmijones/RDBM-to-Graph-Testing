@@ -3,136 +3,9 @@ import os, json, time, sqlite3, uuid
 from pathlib import Path
 from typing import Dict, Any, List, Tuple
 import requests
-from jsonschema import validate, Draft202012Validator
 import pandas as pd
+from jsonschema import Draft202012Validator
 from dotenv import load_dotenv
-
-# ----------------------------
-# Config
-# ----------------------------
-import os
-
-# Check if we're in a Colab environment
-def is_colab():
-    try:
-        import google.colab
-        return True
-    except ImportError:
-        return False
-
-OUT_DIR = Path("../kg_out")
-OUT_DIR.mkdir(exist_ok=True, parents=True)
-
-# Load environment variables
-if is_colab():
-    # In Colab, use userdata schema for secrets
-    try:
-        from google.colab import userdata
-        # Map userdata keys to environment variables
-        
-        KG_SQLITE_PATH = userdata.get('KG_SQLITE_PATH', "mock_dataset/mock_people.db")
-        MISTRAL_API_KEY = userdata.get('MISTRAL_API_KEY')
-        if not MISTRAL_API_KEY:
-            raise ValueError("MISTRAL_API_KEY is required but not found in userdata")
-        MISTRAL_MODEL = userdata.get('MISTRAL_MODEL', "mistral-small-latest")
-        MISTRAL_URL = userdata.get('MISTRAL_URL', "https://api.mistral.ai/v1/chat/completions")
-        
-        # Budget control
-        KG_MAX_TOKENS = userdata.get('KG_MAX_TOKENS', "1024")
-
-    except Exception as e:
-        print(f"Warning: Could not load userdata in Colab: {e}")
-        # Fall back to default values
-        pass
-else:
-    # Standard environment - load from .env file
-    parent_env = Path(__file__).parent.parent / ".env"
-    load_dotenv(dotenv_path=parent_env) if parent_env.exists() else load_dotenv()
-
-    DB_PATH = os.environ.get("KG_SQLITE_PATH", "../mock_dataset/mock_people.db")
-
-    MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY")
-    if not MISTRAL_API_KEY:
-        raise ValueError("MISTRAL_API_KEY is required but not found in environment variables")
-
-    MISTRAL_MODEL = os.environ.get("MISTRAL_MODEL", "mistral-small-latest")  # e.g. mistral-small-latest / open-mistral-7b
-    MISTRAL_URL = os.environ.get("MISTRAL_URL", "https://api.mistral.ai/v1/chat/completions")
-
-    # Budget control
-    PER_REQUEST_MAX_TOKENS = int(os.environ.get("KG_MAX_TOKENS", "1024"))
-
-# ----------------------------
-# Minimal YAGO/Schema.org oriented JSON schema
-# (tight enough to keep models honest; broad enough to not fight them)
-# ----------------------------
-KG_SCHEMA: Dict[str, Any] = {
-    "type": "object",
-    "required": ["nodes", "edges", "provenance"],
-    "properties": {
-        "nodes": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "required": ["id", "type"],
-                "properties": {
-                    "id": {"type": "string"},  # local IRI/curie, e.g., person:UUID
-                    "type": {"type": "string"},  # e.g., "schema:Person", "schema:Organization"
-                    "labels": {"type": "object"},  # freeform literals e.g., fullName, url, sameAs
-                    "external_ids": {"type": "object"}  # optional: wikidata/schema ids
-                },
-                "additionalProperties": False
-            }
-        },
-        "edges": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "required": ["sub", "pred", "obj"],
-                "properties": {
-                    "sub": {"type": "string"},
-                    "pred": {"type": "string"},  # e.g., "schema:alumniOf", "schema:worksFor", "schema:participant"
-                    "obj": {"type": "string"},
-                    "qualifiers": {"type": "object"},  # e.g., startDate, endDate
-                },
-                "additionalProperties": False
-            }
-        },
-        "provenance": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "required": ["triple", "evidence"],
-                "properties": {
-                    "triple": {"type": "object",
-                               "required": ["sub", "pred", "obj"],
-                               "properties": {
-                                   "sub": {"type": "string"},
-                                   "pred": {"type": "string"},
-                                   "obj": {"type": "string"},
-                               },
-                               "additionalProperties": False
-                               },
-                    "evidence": {
-                        "type": "object",
-                        "properties": {
-                            "source_table": {"type": "string"},
-                            "source_pk": {"type": ["string", "number"]},
-                            "data_point_id": {"type": ["string", "null"]},
-                            "source_url": {"type": ["string", "null"]},
-                            "quote": {"type": ["string", "null"]},
-                            "confidence": {"type": ["number", "null"]},
-                            "collected_at": {"type": ["string", "null"]}
-                        }
-                    }
-                },
-                "additionalProperties": False
-            }
-        }
-    },
-    "additionalProperties": False
-}
-
-validator = Draft202012Validator(KG_SCHEMA)
 
 # ----------------------------
 # DB helpers
@@ -204,11 +77,17 @@ def fetch_slice_for_person(conn, person_id: str) -> Dict[str, Any]:
     return pack
 
 # ----------------------------
-# LLM call (Mistral chat)
+# LLM call
 # ----------------------------
-def call_mistral(messages: List[Dict[str, str]], model: str = MISTRAL_MODEL, max_tokens: int = PER_REQUEST_MAX_TOKENS) -> str:
+def call_mistral(
+    messages: List[Dict[str, str]],
+    api_key: str,
+    model: str,
+    mistral_url: str,
+    max_tokens: int
+) -> str:
     headers = {
-        "Authorization": f"Bearer {MISTRAL_API_KEY}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
     payload = {
@@ -216,34 +95,17 @@ def call_mistral(messages: List[Dict[str, str]], model: str = MISTRAL_MODEL, max
         "messages": messages,
         "temperature": 0.1,
         "max_tokens": max_tokens,
-        "response_format": {"type": "json_object"}  # ask Mistral to return JSON
+        "response_format": {"type": "json_object"}  # ask JSON back
     }
-    resp = requests.post(MISTRAL_URL, headers=headers, json=payload, timeout=60)
+    resp = requests.post(mistral_url, headers=headers, json=payload, timeout=60)
     resp.raise_for_status()
     data = resp.json()
     return data["choices"][0]["message"]["content"]
 
 # ----------------------------
-# Prompt templates
+# Context + merge helpers
 # ----------------------------
-SYSTEM_PROMPT = """You convert relational rows into a small YAGO/Schema.org compliant knowledge subgraph.
-
-Rules:
-- Use classes like: schema:Person, schema:Organization (and EducationalOrganization if obvious), schema:Event, schema:Language, yago:Award, yago:Gender, yago:BeliefSystem, schema:Place.
-- Prefer property directions: use schema:parentOrganization (not childOrganization); use schema:superEvent (not subEvent).
-- For Person edges, prefer: schema:alumniOf, schema:worksFor, schema:memberOf, schema:affiliation, schema:knowsLanguage, schema:award, schema:gender, schema:homeLocation, schema:participant (for events).
-- Emit only valid JSON with keys: nodes, edges, provenance (no extra keys).
-- Node ids must be strings; reuse ids inside your output when linking.
-- For organizations detected as universities/colleges, type them as EducationalOrganization.
-- Add lightweight provenance for edges where possible (table name, source pk, data_point_id, url/quote if present).
-- Do not invent unknown facts; if unsure, omit.
-"""
-
-USER_INSTRUCTIONS = """Build a preliminary graph for the focus person and any directly referenced entities implied by the rows. 
-Return JSON matching the provided JSON Schema, nothing else."""
-
 def make_user_context(person_pack: Dict[str, Any]) -> str:
-    # Compact the context to stay within cheap-token budgets
     def j(obj): return json.dumps(obj, ensure_ascii=False)
     ctx = {
         "focus_person_rows": person_pack.get("people", []),
@@ -258,10 +120,7 @@ def make_user_context(person_pack: Dict[str, Any]) -> str:
     }
     return j(ctx)
 
-# ----------------------------
-# Validation & merge
-# ----------------------------
-def is_valid_patch(patch: Dict[str, Any]) -> Tuple[bool, List[str]]:
+def is_valid_patch(patch: Dict[str, Any], validator: Draft202012Validator) -> Tuple[bool, List[str]]:
     errors = sorted(validator.iter_errors(patch), key=lambda e: e.path)
     if errors:
         msgs = []
@@ -272,8 +131,6 @@ def is_valid_patch(patch: Dict[str, Any]) -> Tuple[bool, List[str]]:
     return True, []
 
 def merge_graph(G: Dict[str, Any], patch: Dict[str, Any]) -> Dict[str, Any]:
-    # G state: {"nodes": {id->node}, "edges": [..], "provenance": [..]}
-    # Simple canonical merge: if a node with same (type, normalized label) exists, reuse its id.
     if "nodes" not in G:
         G["nodes"] = {}
     if "edges" not in G:
@@ -281,10 +138,8 @@ def merge_graph(G: Dict[str, Any], patch: Dict[str, Any]) -> Dict[str, Any]:
     if "provenance" not in G:
         G["provenance"] = []
 
-    # map temp ids to canonical ids
     id_map: Dict[str, str] = {}
 
-    # Helper to derive a canonical key for de-dupe
     def canon_key(n: Dict[str, Any]) -> str:
         t = n.get("type","?")
         name = (n.get("labels", {}) or {}).get("fullName") \
@@ -295,12 +150,10 @@ def merge_graph(G: Dict[str, Any], patch: Dict[str, Any]) -> Dict[str, Any]:
 
     existing_keys = { canon_key(v): k for k, v in G["nodes"].items() }
 
-    # Merge nodes
     for n in patch.get("nodes", []):
         key = canon_key(n)
         if key in existing_keys:
             cid = existing_keys[key]
-            # merge labels shallowly
             merged = {**G["nodes"][cid]}
             merged_labels = {**(merged.get("labels") or {}), **(n.get("labels") or {})}
             merged["labels"] = merged_labels
@@ -308,13 +161,11 @@ def merge_graph(G: Dict[str, Any], patch: Dict[str, Any]) -> Dict[str, Any]:
             id_map[n["id"]] = cid
         else:
             cid = n["id"]
-            # Ensure unique id
             if cid in G["nodes"]:
                 cid = f"{cid}-{uuid.uuid4().hex[:6]}"
             G["nodes"][cid] = n
             id_map[n["id"]] = cid
 
-    # Remap edges to canonical node ids
     for e in patch.get("edges", []):
         sub = id_map.get(e["sub"], e["sub"])
         obj = id_map.get(e["obj"], e["obj"])
@@ -323,9 +174,7 @@ def merge_graph(G: Dict[str, Any], patch: Dict[str, Any]) -> Dict[str, Any]:
             new_e["qualifiers"] = e["qualifiers"]
         G["edges"].append(new_e)
 
-    # provenance passthrough
     for p in patch.get("provenance", []):
-        # rewrite IDs inside provenance.triple
         t = p.get("triple", {})
         t["sub"] = id_map.get(t.get("sub"), t.get("sub"))
         t["obj"] = id_map.get(t.get("obj"), t.get("obj"))
@@ -334,69 +183,88 @@ def merge_graph(G: Dict[str, Any], patch: Dict[str, Any]) -> Dict[str, Any]:
     return G
 
 # ----------------------------
-# Main loop
+# Core exportable function
 # ----------------------------
-def main():
-    if not MISTRAL_API_KEY:
-        raise RuntimeError("Set MISTRAL_API_KEY in your environment.")
+def build_kg(
+    *,
+    api_key: str,
+    model: str = "mistral-small-latest",
+    mistral_url: str = "https://api.mistral.ai/v1/chat/completions",
+    db_path: str = "mock_dataset/mock_people.db",
+    out_dir: str = "kg_out",
+    kg_schema: Dict[str, Any],
+    system_prompt: str,
+    user_instructions: str,
+    person_limit: int = 50,
+    max_tokens: int = 1024,
+    sleep_sec: float = 0.4
+) -> Dict[str, Any]:
+    """
+    Build a YAGO/Schema.org–adherent KG from a local SQLite slice using a Mistral model.
 
-    conn = sqlite3.connect(DB_PATH)
+    Returns the final graph_state dict: {"nodes": {id->node}, "edges": [...], "provenance": [...]}
+    and writes artifacts to out_dir (graph.jsonl, graph_state.json, csvs).
+    """
+    out_path = Path(out_dir); out_path.mkdir(parents=True, exist_ok=True)
+    validator = Draft202012Validator(kg_schema)
+
+    # Connect
+    conn = sqlite3.connect(db_path)
     conn.row_factory = None
 
-    person_ids = fetch_person_ids(conn, limit=50)
-    print(f"[info] building KG for {len(person_ids)} people from {DB_PATH}")
+    person_ids = fetch_person_ids(conn, limit=person_limit)
+    print(f"[info] building KG for {len(person_ids)} people from {db_path}")
 
     graph_state: Dict[str, Any] = {"nodes": {}, "edges": [], "provenance": []}
-    graph_jsonl = (OUT_DIR / "graph.jsonl").open("a", encoding="utf-8")
+    graph_jsonl = (out_path / "graph.jsonl").open("a", encoding="utf-8")
 
     for i, pid in enumerate(person_ids, 1):
         pack = fetch_slice_for_person(conn, pid)
 
-        # Build messages
         user_ctx = make_user_context(pack)
         messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": USER_INSTRUCTIONS},
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_instructions},
             {"role": "user", "content": f"JSON context:\n{user_ctx}"},
             {"role": "user", "content": "Output the KG JSON now."}
         ]
 
-        # Call LLM
         try:
-            raw = call_mistral(messages)
+            raw = call_mistral(messages, api_key=api_key, model=model, mistral_url=mistral_url, max_tokens=max_tokens)
         except Exception as e:
             print(f"[warn] LLM call failed for {pid}: {e}")
             continue
 
-        # Parse + validate + light repair retry
+        # Parse + validate + light repair
+        def try_parse(raw_txt: str) -> Dict[str, Any]:
+            return json.loads(raw_txt)
+
         try:
-            patch = json.loads(raw)
+            patch = try_parse(raw)
         except json.JSONDecodeError:
-            # ask the model to fix JSON only once
             fix_msgs = messages + [
                 {"role": "assistant", "content": raw},
                 {"role": "user", "content": "Your previous message was not valid JSON. Return ONLY valid JSON per the schema."}
             ]
             try:
-                fixed = call_mistral(fix_msgs)
-                patch = json.loads(fixed)
+                fixed = call_mistral(fix_msgs, api_key=api_key, model=model, mistral_url=mistral_url, max_tokens=max_tokens)
+                patch = try_parse(fixed)
             except Exception as e:
                 print(f"[warn] JSON repair failed for {pid}: {e}")
                 continue
 
-        ok, errs = is_valid_patch(patch)
+        ok, errs = is_valid_patch(patch, validator)
         if not ok:
-            # one more auto-repair attempt with error hints
             repair_msgs = [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "The following JSON failed schema validation. Return a corrected JSON only."},
                 {"role": "user", "content": json.dumps(patch, ensure_ascii=False)},
                 {"role": "user", "content": "Errors:\n" + "\n".join(errs)}
             ]
             try:
-                fixed = call_mistral(repair_msgs)
+                fixed = call_mistral(repair_msgs, api_key=api_key, model=model, mistral_url=mistral_url, max_tokens=max_tokens)
                 patch2 = json.loads(fixed)
-                ok2, errs2 = is_valid_patch(patch2)
+                ok2, errs2 = is_valid_patch(patch2, validator)
                 if not ok2:
                     print(f"[warn] validation still failing for {pid}: {errs2[:3]}")
                     continue
@@ -405,35 +273,148 @@ def main():
                 print(f"[warn] repair call failed for {pid}: {e}")
                 continue
 
-        # Write latest patch to file (debugging)
-        (OUT_DIR / "latest_patch.json").write_text(json.dumps(patch, indent=2, ensure_ascii=False), encoding="utf-8")
+        # Save last patch for debugging
+        (out_path / "latest_patch.json").write_text(json.dumps(patch, indent=2, ensure_ascii=False), encoding="utf-8")
 
-        # Merge into global graph
+        # Merge + audit trail
         graph_state = merge_graph(graph_state, patch)
-
-        # Append to JSONL (audit trail per person)
         graph_jsonl.write(json.dumps({"person_id": pid, "patch": patch}, ensure_ascii=False) + "\n")
         graph_jsonl.flush()
 
         print(f"[ok] merged person {i}/{len(person_ids)}  id={pid}  nodes={len(patch.get('nodes',[]))} edges={len(patch.get('edges',[]))}")
-
-        # tiny pause to be nice to the API
-        time.sleep(0.4)
+        time.sleep(sleep_sec)
 
     graph_jsonl.close()
 
-    # Export final graph as flat CSVs for quick viewing
+    # Export final graph artifacts
     nodes_df = pd.DataFrame([{"id": nid, **(node or {})} for nid, node in graph_state["nodes"].items()])
     edges_df = pd.DataFrame(graph_state["edges"])
     prov_df  = pd.DataFrame(graph_state["provenance"])
 
-    nodes_df.to_csv(OUT_DIR / "graph_nodes.csv", index=False)
-    edges_df.to_csv(OUT_DIR / "graph_edges.csv", index=False)
-    prov_df.to_csv(OUT_DIR / "graph_provenance.csv", index=False)
+    nodes_df.to_csv(out_path / "graph_nodes.csv", index=False)
+    edges_df.to_csv(out_path / "graph_edges.csv", index=False)
+    prov_df.to_csv(out_path / "graph_provenance.csv", index=False)
 
-    (OUT_DIR / "graph_state.json").write_text(json.dumps(graph_state, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"\n[done] graph built → {OUT_DIR.resolve()}")
+    (out_path / "graph_state.json").write_text(json.dumps(graph_state, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"\n[done] graph built → {out_path.resolve()}")
     print(f"      nodes={len(graph_state['nodes'])} edges={len(graph_state['edges'])} prov={len(graph_state['provenance'])}")
+    return graph_state
 
+# ----------------------------
+# Defaults for easy CLI usage
+# ----------------------------
+DEFAULT_KG_SCHEMA: Dict[str, Any] = {
+    "type": "object",
+    "required": ["nodes", "edges", "provenance"],
+    "properties": {
+        "nodes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["id", "type"],
+                "properties": {
+                    "id": {"type": "string"},
+                    "type": {"type": "string"},
+                    "labels": {"type": "object"},
+                    "external_ids": {"type": "object"}
+                },
+                "additionalProperties": False
+            }
+        },
+        "edges": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["sub", "pred", "obj"],
+                "properties": {
+                    "sub": {"type": "string"},
+                    "pred": {"type": "string"},
+                    "obj": {"type": "string"},
+                    "qualifiers": {"type": "object"},
+                },
+                "additionalProperties": False
+            }
+        },
+        "provenance": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["triple", "evidence"],
+                "properties": {
+                    "triple": {"type": "object",
+                               "required": ["sub", "pred", "obj"],
+                               "properties": {
+                                   "sub": {"type": "string"},
+                                   "pred": {"type": "string"},
+                                   "obj": {"type": "string"},
+                               },
+                               "additionalProperties": False},
+                    "evidence": {
+                        "type": "object",
+                        "properties": {
+                            "source_table": {"type": "string"},
+                            "source_pk": {"type": ["string", "number"]},
+                            "data_point_id": {"type": ["string", "null"]},
+                            "source_url": {"type": ["string", "null"]},
+                            "quote": {"type": ["string", "null"]},
+                            "confidence": {"type": ["number", "null"]},
+                            "collected_at": {"type": ["string", "null"]}
+                        }
+                    }
+                },
+                "additionalProperties": False
+            }
+        }
+    },
+    "additionalProperties": False
+}
+
+DEFAULT_SYSTEM_PROMPT = """You convert relational rows into a small YAGO/Schema.org compliant knowledge subgraph.
+
+Rules:
+- Use classes like: schema:Person, schema:Organization (and EducationalOrganization if obvious), schema:Event, schema:Language, yago:Award, yago:Gender, yago:BeliefSystem, schema:Place.
+- Prefer property directions: use schema:parentOrganization (not childOrganization); use schema:superEvent (not subEvent).
+- For Person edges, prefer: schema:alumniOf, schema:worksFor, schema:memberOf, schema:affiliation, schema:knowsLanguage, schema:award, schema:gender, schema:homeLocation, schema:participant (for events).
+- Emit only valid JSON with keys: nodes, edges, provenance (no extra keys).
+- Node ids must be strings; reuse ids inside your output when linking.
+- For organizations detected as universities/colleges, type them as EducationalOrganization.
+- Add lightweight provenance for edges where possible (table name, source pk, data_point_id, url/quote if present).
+- Do not invent unknown facts; if unsure, omit.
+"""
+
+DEFAULT_USER_INSTRUCTIONS = """Build a preliminary graph for the focus person and any directly referenced entities implied by the rows.
+Return JSON matching the provided JSON Schema, nothing else."""
+
+# ----------------------------
+# CLI shim (optional)
+# ----------------------------
 if __name__ == "__main__":
-    main()
+    # Load env for quick runs
+    here = Path(__file__).resolve().parent
+    parent_env = here.parent / ".env"
+    load_dotenv(dotenv_path=parent_env) if parent_env.exists() else load_dotenv()
+
+    api_key = os.environ.get("MISTRAL_API_KEY")
+    if not api_key:
+        raise RuntimeError("Set MISTRAL_API_KEY in your environment.")
+
+    model = os.environ.get("MISTRAL_MODEL", "mistral-small-latest")
+    mistral_url = os.environ.get("MISTRAL_URL", "https://api.mistral.ai/v1/chat/completions")
+    db_path = os.environ.get("KG_SQLITE_PATH", "mock_dataset/mock_people.db")
+    out_dir = os.environ.get("KG_OUT_DIR", "kg_out")
+    max_tokens = int(os.environ.get("KG_MAX_TOKENS", "1024"))
+    person_limit = int(os.environ.get("KG_PERSON_LIMIT", "50"))
+
+    build_kg(
+        api_key=api_key,
+        model=model,
+        mistral_url=mistral_url,
+        db_path=db_path,
+        out_dir=out_dir,
+        kg_schema=DEFAULT_KG_SCHEMA,
+        system_prompt=DEFAULT_SYSTEM_PROMPT,
+        user_instructions=DEFAULT_USER_INSTRUCTIONS,
+        person_limit=person_limit,
+        max_tokens=max_tokens,
+        sleep_sec=0.4
+    )
