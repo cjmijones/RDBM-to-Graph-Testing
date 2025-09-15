@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any, List
 
 import numpy as np
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from dotenv import load_dotenv
 
@@ -78,26 +78,24 @@ def _parquet_friendly(df: pd.DataFrame) -> pd.DataFrame:
 
 def _sample_people(engine, limit: int = 50, seed: Optional[float] = None) -> pd.DataFrame:
     """
-    Sample people ids with optional deterministic random seed.
+    Deterministic ordering via md5(id || seed). No use of setseed()/random().
     """
-    if seed is not None:
-        seed_val = float(seed) % 1.0
-        q = f"""
-            SELECT id
-            FROM public.people
-            ORDER BY (
-                SELECT setseed({seed_val})
-            ), random()
-            LIMIT {int(limit)};
-        """
+    limit = int(limit)
+    if seed is None:
+        # fall back to non-deterministic order
+        q = text("SELECT id FROM public.people ORDER BY random() LIMIT :lim")
+        with engine.begin() as conn:
+            return pd.read_sql(q, conn, params={"lim": limit})
     else:
-        q = f"""
+        seed_str = str(float(seed) % 1.0)  # normalize
+        q = text("""
             SELECT id
             FROM public.people
-            ORDER BY random()
-            LIMIT {int(limit)};
-        """
-    return pd.read_sql(q, engine)
+            ORDER BY md5(id::text || :seed)
+            LIMIT :lim
+        """)
+        with engine.begin() as conn:
+            return pd.read_sql(q, conn, params={"seed": seed_str, "lim": limit})
 
 
 def _fetch_core_frames(engine, person_ids: List[str]) -> Dict[str, pd.DataFrame]:
