@@ -1,0 +1,12 @@
+You are an information extraction model. Extract clean subject–relation–object triples from the INPUT text.
+
+Rules:
+- Each line in INPUT may look like: Person "NAME" RELATION "VALUE".
+- Treat prefixes like open:REL as relation names.
+- Keep subjects and objects as concise strings. Do not invent data.
+- Ignore boilerplate like "Provenance person_id ...".
+- Return ONLY a JSON array of triples: [["subj","rel","obj"], ...]
+- Do not deduplicate across lines; keep distinct facts.
+
+INPUT:
+{input_text}

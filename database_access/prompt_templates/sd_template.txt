@@ -1,0 +1,16 @@
+You induce normalized relation names from observed relation tokens.
+
+Task:
+Given a list of observed relations (including open:* paths), propose a SMALL set
+of normalized relation names with short, unambiguous definitions that generalize them.
+
+Guidelines:
+- Collapse families like open:current_title, open:positions__idx*__title into "has_title".
+- Use concise names like works_at, has_title, has_skill, studied_at, has_email, has_phone.
+- Only propose relations that are clearly meaningful and reusable.
+
+OBSERVED RELATIONS:
+{observed_relations}
+
+Return JSON:
+{"relations":[{"name":"has_title","definition":"..."}, ...]}

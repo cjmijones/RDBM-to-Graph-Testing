@@ -1,0 +1,44 @@
+# Hints bias the extractor to prefer normalized relations where obvious.
+HINTS:
+works_at, has_title, has_skill, has_email, has_phone, has_profile_url, studied_at, has_degree, located_in_country, located_in_city
+
+# Example 1 — map open:* to normalized relations for Matthew
+INPUT:
+Person "Matthew Sean Tucker" open:headline "President at Tucker Law".
+Person "Matthew Sean Tucker" open:positions__idx0__title "Attorney".
+Person "Matthew Sean Tucker" open:positions__idx0__companyname "Tucker Law".
+Person "Matthew Sean Tucker" open:geo__country "United States".
+Person "Matthew Sean Tucker" open:geo__city "Fort Lauderdale, Florida".
+Person "Matthew Sean Tucker" open:skills__idx0__name "Patent Prosecution".
+Person "Matthew Sean Tucker" has_email "matt@tuckerup.com".
+Person "Matthew Sean Tucker" has_phone "9542040444".
+
+OUTPUT:
+[
+  ["Matthew Sean Tucker","has_title","President"],            # from headline context
+  ["Matthew Sean Tucker","has_title","Attorney"],
+  ["Matthew Sean Tucker","works_at","Tucker Law"],
+  ["Matthew Sean Tucker","located_in_country","United States"],
+  ["Matthew Sean Tucker","located_in_city","Fort Lauderdale, Florida"],
+  ["Matthew Sean Tucker","has_skill","Patent Prosecution"],
+  ["Matthew Sean Tucker","has_email","matt@tuckerup.com"],
+  ["Matthew Sean Tucker","has_phone","9542040444"]
+]
+
+# Example 2 — map open:* to normalized relations for Julie
+INPUT:
+Person "Julie A. Gerhardt" open:location "Las Vegas".
+Person "Julie A. Gerhardt" open:education "Education Bakersfield College Political Science".
+Person "Julie A. Gerhardt" has_profile_url "https://www.dickinson-wright.com/our-people/julie-a-gerhardt".
+Person "Julie A. Gerhardt" has_title "Paralegal".
+Person "Julie A. Gerhardt" works_at "Dickinson Wright".
+
+OUTPUT:
+[
+  ["Julie A. Gerhardt","located_in_city","Las Vegas"],
+  ["Julie A. Gerhardt","studied_at","Bakersfield College"],
+  ["Julie A. Gerhardt","studied_field","Political Science"],
+  ["Julie A. Gerhardt","has_profile_url","https://www.dickinson-wright.com/our-people/julie-a-gerhardt"],
+  ["Julie A. Gerhardt","has_title","Paralegal"],
+  ["Julie A. Gerhardt","works_at","Dickinson Wright"]
+]

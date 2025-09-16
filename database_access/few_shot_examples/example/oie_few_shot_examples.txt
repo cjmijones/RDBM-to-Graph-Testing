@@ -1,0 +1,59 @@
+# Example 1 — Julie A. Gerhardt (simple, keeps some open:* paths)
+INPUT:
+Person "Julie A. Gerhardt" has_title "Paralegal".
+Person "Julie A. Gerhardt" works_at "Dickinson Wright".
+Person "Julie A. Gerhardt" has_email "JGerhardt@dickinsonwright.com".
+Person "Julie A. Gerhardt" has_phone "7025504429".
+Person "Julie A. Gerhardt" has_profile_url "https://www.dickinson-wright.com/our-people/julie-a-gerhardt".
+Person "Julie A. Gerhardt" open:location "Las Vegas".
+Person "Julie A. Gerhardt" open:education "Education Bakersfield College Political Science".
+Person "Julie A. Gerhardt" open:bio "Julie has over 30 years of legal experience ... Trademark Trial and Appeal Board ... U. S. Copyright Office ...".
+
+OUTPUT:
+[
+  ["Julie A. Gerhardt","has_title","Paralegal"],
+  ["Julie A. Gerhardt","works_at","Dickinson Wright"],
+  ["Julie A. Gerhardt","has_email","JGerhardt@dickinsonwright.com"],
+  ["Julie A. Gerhardt","has_phone","7025504429"],
+  ["Julie A. Gerhardt","has_profile_url","https://www.dickinson-wright.com/our-people/julie-a-gerhardt"],
+  ["Julie A. Gerhardt","open:location","Las Vegas"],
+  ["Julie A. Gerhardt","open:education","Education Bakersfield College Political Science"],
+  ["Julie A. Gerhardt","open:bio","Julie has over 30 years of legal experience ..."]
+]
+
+# Example 2 — Matthew Sean Tucker (lists/positions/skills present)
+INPUT:
+Person "Matthew Sean Tucker" has_title "President".
+Person "Matthew Sean Tucker" works_at "Tucker Law".
+Person "Matthew Sean Tucker" has_email "matt@tuckerup.com".
+Person "Matthew Sean Tucker" has_phone "9542040444".
+Person "Matthew Sean Tucker" has_profile_url "https://www.floridabar.org/mybarprofile/90047".
+Person "Matthew Sean Tucker" has_profile_url "https://www.linkedin.com/in/matthew-sean-tucker".
+Person "Matthew Sean Tucker" open:geo__country "United States".
+Person "Matthew Sean Tucker" open:geo__city "Fort Lauderdale, Florida".
+Person "Matthew Sean Tucker" open:skills__idx0__name "Patent Prosecution".
+Person "Matthew Sean Tucker" open:skills__idx3__name "Patents".
+Person "Matthew Sean Tucker" open:skills__idx10__name "Litigation".
+Person "Matthew Sean Tucker" open:positions__idx0__title "Attorney".
+Person "Matthew Sean Tucker" open:positions__idx0__companyname "Tucker Law".
+Person "Matthew Sean Tucker" open:positions__idx0__startyear "2013".
+Person "Matthew Sean Tucker" open:positions__idx2__companyname "Christopher & Weisberg, P.A.".
+
+OUTPUT:
+[
+  ["Matthew Sean Tucker","has_title","President"],
+  ["Matthew Sean Tucker","works_at","Tucker Law"],
+  ["Matthew Sean Tucker","has_email","matt@tuckerup.com"],
+  ["Matthew Sean Tucker","has_phone","9542040444"],
+  ["Matthew Sean Tucker","has_profile_url","https://www.floridabar.org/mybarprofile/90047"],
+  ["Matthew Sean Tucker","has_profile_url","https://www.linkedin.com/in/matthew-sean-tucker"],
+  ["Matthew Sean Tucker","open:geo__country","United States"],
+  ["Matthew Sean Tucker","open:geo__city","Fort Lauderdale, Florida"],
+  ["Matthew Sean Tucker","open:skills__idx0__name","Patent Prosecution"],
+  ["Matthew Sean Tucker","open:skills__idx3__name","Patents"],
+  ["Matthew Sean Tucker","open:skills__idx10__name","Litigation"],
+  ["Matthew Sean Tucker","open:positions__idx0__title","Attorney"],
+  ["Matthew Sean Tucker","open:positions__idx0__companyname","Tucker Law"],
+  ["Matthew Sean Tucker","open:positions__idx0__startyear","2013"],
+  ["Matthew Sean Tucker","open:positions__idx2__companyname","Christopher & Weisberg, P.A."]
+]

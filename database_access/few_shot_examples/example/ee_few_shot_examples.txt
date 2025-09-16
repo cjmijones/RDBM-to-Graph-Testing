@@ -1,0 +1,25 @@
+# Normalize entities (names/orgs) and group obvious aliases.
+
+INPUT TRIPLES:
+[
+  ["Matthew Sean Tucker","has_email","matt@tuckerup.com"],
+  ["Matthew Sean Tucker","works_at","Tucker Law"],
+  ["Matthew S. Tucker","has_phone","+1-954-204-0444"],
+  ["Tucker Law","located_in_city","Fort Lauderdale, Florida"],
+  ["Julie A. Gerhardt","has_email","jgerhardt@dickinsonwright.com"],
+  ["Julie Gerhardt","works_at","Dickinson Wright"],
+  ["Alyssa Ann Cina","works_at","Resnick & Louis, P.C. - Attorneys at Law"],
+  ["Resnick & Louis, P.C.","has_profile_url","https://rlattorneys.com/"]
+]
+
+OUTPUT:
+{
+  "entities": [
+    {"canonical": "Matthew Sean Tucker", "aliases": ["Matthew S. Tucker"]},
+    {"canonical": "Tucker Law",          "aliases": []},
+    {"canonical": "Julie A. Gerhardt",   "aliases": ["Julie Gerhardt"]},
+    {"canonical": "Dickinson Wright",    "aliases": ["Dickinson Wright PLLC"]},
+    {"canonical": "Alyssa Ann Cina",     "aliases": []},
+    {"canonical": "Resnick & Louis, P.C. - Attorneys at Law", "aliases": ["Resnick & Louis, P.C."]}
+  ]
+}

@@ -1,0 +1,12 @@
+Your task is to produce canonical entity strings for subjects/objects and basic aliases.
+
+Rules:
+- Normalize minor punctuation and whitespace.
+- Keep person names as written unless there's an obvious duplicate (case-only).
+- Provide {"canonical":"...", "aliases":["...","..."]}.
+
+INPUT TRIPLES:
+{triples}
+
+Return JSON:
+{"entities":[{"canonical":"Haitham Hawashin","aliases":["HAITHAM HAWASHIN"]}, ...]}

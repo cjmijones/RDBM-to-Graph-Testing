@@ -1,0 +1,13 @@
+relation,definition
+has_person_id,A stable identifier for the person record in our system.
+works_at,The person’s current employer or organization.
+has_title,The person’s current job title at their organization.
+has_skill,A capability or area of expertise the person possesses.
+studied_at,An educational institution attended by the person.
+has_degree,An academic degree held by the person.
+studied_field,The field of study associated with an education.
+has_email,An email address used to contact the person.
+has_phone,A telephone number used to contact the person.
+has_profile_url,A URL that points to the person’s public profile page.
+located_in_country,The country where the person is primarily located for work.
+job_location,The city or region associated with a particular position or role.

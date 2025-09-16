@@ -82,12 +82,12 @@ def _sample_people(engine, limit: int = 50, seed: Optional[float] = None) -> pd.
     """
     limit = int(limit)
     if seed is None:
-        # fall back to non-deterministic order
         q = text("SELECT id FROM public.people ORDER BY random() LIMIT :lim")
         with engine.begin() as conn:
             return pd.read_sql(q, conn, params={"lim": limit})
     else:
-        seed_str = str(float(seed) % 1.0)  # normalize
+        # normalize to a compact string; any stable string is fine
+        seed_str = f"{float(seed) % 1.0:.8f}"
         q = text("""
             SELECT id
             FROM public.people

@@ -1,0 +1,62 @@
+# Collapse path-like open:* relations into concise, reusable schema relations.
+
+OBSERVED:
+open:current_title
+open:headline
+open:positions__idx0__title
+open:positions__idx1__title
+open:positions__idx0__companyname
+open:skills__idx0__name
+open:skills__idx10__name
+open:geo__country
+open:geo__city
+open:education
+open:location
+has_email
+has_phone
+has_profile_url
+
+OUTPUT:
+{
+  "relations": [
+    {"name": "has_title",            "definition": "The person's role or job title at an organization."},
+    {"name": "works_at",             "definition": "The organization the person is employed by or leads."},
+    {"name": "has_skill",            "definition": "A capability or area of expertise the person possesses."},
+    {"name": "located_in_country",   "definition": "The country where the person is primarily located."},
+    {"name": "located_in_city",      "definition": "The city or metro area associated with the person."},
+    {"name": "studied_at",           "definition": "An educational institution the person attended."},
+    {"name": "has_degree",           "definition": "An academic degree earned by the person."},
+    {"name": "studied_field",        "definition": "The academic field or major studied by the person."},
+    {"name": "has_email",            "definition": "An email address to contact the person."},
+    {"name": "has_phone",            "definition": "A telephone number to contact the person."},
+    {"name": "has_profile_url",      "definition": "A URL of the person’s public profile page."}
+  ]
+}
+
+# Another OBSERVED set (Alyssa Ann Cina)
+OBSERVED:
+open:positions__idx0__title
+open:positions__idx0__companyname
+open:positions__idx2__title
+open:positions__idx2__companyname
+open:positions__idx2__location
+open:educations__idx0__schoolname
+open:educations__idx0__fieldofstudy
+open:skills__idx3__name
+open:skills__idx15__name
+has_email
+has_profile_url
+
+OUTPUT:
+{
+  "relations": [
+    {"name": "has_title",            "definition": "The person's role or job title at an organization."},
+    {"name": "works_at",             "definition": "The organization the person is employed by or leads."},
+    {"name": "job_location",         "definition": "City or region associated with a specific job or role."},
+    {"name": "studied_at",           "definition": "An educational institution the person attended."},
+    {"name": "studied_field",        "definition": "The academic field or major studied by the person."},
+    {"name": "has_skill",            "definition": "A capability or area of expertise the person possesses."},
+    {"name": "has_email",            "definition": "An email address to contact the person."},
+    {"name": "has_profile_url",      "definition": "A URL of the person’s public profile page."}
+  ]
+}

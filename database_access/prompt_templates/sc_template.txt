@@ -1,0 +1,16 @@
+You map extracted relations to a target schema using reasoning.
+
+You are given:
+- TRIPLE: ["SUBJ","REL","OBJ"]
+- TARGET_SCHEMA: list of {name, definition}
+- If REL looks like open:* or a pathy token, choose the BEST target relation by meaning.
+- If no good match exists, keep REL as "unknown:REL".
+
+Return JSON:
+{"mapped_relation": "has_title"}  # or {"mapped_relation":"unknown:positions__idx0__title"}
+
+TRIPLE:
+{triple}
+
+TARGET_SCHEMA:
+{schema_entries}
